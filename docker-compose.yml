@@ -1,6 +1,47 @@
+# Command for running app container with MySQL DB:      docker compose --profile mysql up --build
+# Command for running app container with PostgreSQL DB: docker compose --profile postgres up --build
 services:
+  app-mysql:
+    build:
+      context: .
+      target: development # debugger config
+    profiles: ["mysql"]
+    ports:
+      - 8080:8080
+      - 8000:8000 # debugger config
+    develop:
+      # Automatically update config
+      watch:
+        - action: rebuild
+          path: .
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: mysql
+      MYSQL_URL: jdbc:mysql://mysql:3306/petclinic
+  app-postgres:
+    build:
+      context: .
+      target: development # debugger config
+    profiles: [ "postgres" ]
+    ports:
+      - 8080:8080
+      - 8000:8000 # debugger config
+    develop:
+      # Automatically update config
+      watch:
+        - action: rebuild
+          path: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: postgres
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/petclinic
   mysql:
-    image: mysql:9.7
+    image: mysql:9.6
+    profiles: ["mysql"]
     ports:
       - "3306:3306"
     environment:
@@ -9,13 +50,23 @@ services:
       - MYSQL_USER=petclinic
       - MYSQL_PASSWORD=petclinic
       - MYSQL_DATABASE=petclinic
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      timeout: 20s
+      retries: 10
     volumes:
       - "./conf.d:/etc/mysql/conf.d:ro"
   postgres:
-    image: postgres:18.4
+    image: postgres:18.3
+    profiles: ["postgres"]
     ports:
       - "5432:5432"
     environment:
       - POSTGRES_PASSWORD=petclinic
       - POSTGRES_USER=petclinic
       - POSTGRES_DB=petclinic
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "petclinic" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
